@@ -1,0 +1,174 @@
+<%@ jet
+imports="
+      org.talend.core.model.process.IConnection
+      org.talend.core.model.process.INode
+      org.talend.core.model.metadata.IMetadataTable
+      org.talend.core.model.process.ElementParameterParser
+      org.talend.core.model.metadata.IMetadataColumn
+      org.talend.designer.codegen.config.CodeGeneratorArgument
+      org.talend.core.model.process.IConnectionCategory
+      java.util.List
+      java.util.Map
+      java.util.HashMap
+"
+%>
+
+<%
+CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+INode node = (INode)codeGenArgument.getArgument();
+String cid = node.getUniqueName();
+
+String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+String incomingConnName = null;
+List<? extends IConnection> inConns = node.getIncomingConnections();
+if(inConns != null && inConns.size() > 0) {
+    for(IConnection inConn : inConns) {
+        if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+            incomingConnName = inConn.getName();
+            break;
+        }
+    }
+}
+
+
+List<? extends IConnection> outgoingConns = node.getOutgoingSortedConnections();
+if(outgoingConns != null && outgoingConns.size() > 0) {
+    for(IConnection outgoingConn : outgoingConns) {
+        if(outgoingConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) { %>
+            <%=outgoingConn.getName()%> = null;
+    <%  }
+    }
+}
+
+String outgoingConnFilterName = null;
+List<? extends IConnection> outgoingConnsFilter = node.getOutgoingConnections("FILTER");
+if (outgoingConnsFilter != null && outgoingConnsFilter.size() > 0) {
+    for (IConnection outgoingConnFilter : outgoingConnsFilter) {
+        if (outgoingConnFilter.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnFilterName = outgoingConnFilter.getName();
+              break;
+        }
+    }
+}
+
+String outgoingConnRejectName = null;
+List<? extends IConnection> outgoingConnsReject = node.getOutgoingConnections("REJECT");
+if (outgoingConnsReject != null && outgoingConnsReject.size() > 0) {
+    for (IConnection outgoingConnReject : outgoingConnsReject) {
+        if (outgoingConnReject.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnRejectName = outgoingConnReject.getName();
+              break;
+        }
+    }
+}
+
+List<IMetadataColumn> columnList = null;
+List<IMetadataTable> metadatas = node.getMetadataList();
+if(metadatas != null && metadatas.size() > 0) {
+    IMetadataTable metadata = metadatas.get(0);
+    if(metadata != null) {
+        columnList = metadata.getListColumns();
+    }
+}
+
+if (incomingConnName != null && incomingConnName.length() > 0) {  %>
+
+    com.fasterxml.jackson.databind.ObjectMapper mapper_<%=cid%> = new com.fasterxml.jackson.databind.ObjectMapper();
+    com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
+
+    try {
+        if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
+            String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>;
+            if (inputJsonStr_<%=cid%> != null) {
+                inputJson_<%=cid%> = mapper_<%=cid%>.readTree(inputJsonStr_<%=cid%>);
+                com.fasterxml.jackson.databind.JsonNode value_<%=cid%> = null;
+
+                <%
+                List<Map<String, String>> conditions = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__CONDITIONS__");
+                for (Map<String, String> condition : conditions) {
+                      String path = condition.get("PATH").replace("\"", "");
+                      if (!path.startsWith("/")) {
+                          path = "/" + path;
+                      }
+                  %>
+                      value_<%=cid%> = inputJson_<%=cid%>.path("<%=path%>");
+                      if (value_<%=cid%>.isMissingNode()) {
+                          throw new Exception("The attribute <%=path%> can not be found.");
+                      }
+                      else {
+                      <%
+                          Integer operation = Integer.valueOf(condition.get("OPERATION"));
+                          String value = condition.getOrDefault("VALUE", "0").replace("\"", "");
+                          if (operation > 1) { %>
+                              if (!value_<%=cid%>.isValueNode()) {
+                                  throw new Exception("The attribute <%=path%> does not contain a value that can be evaluated.");
+                              }
+                              else {
+                          <%      if (operation >= 7) {  %>
+                                      if (value_<%=cid%>.isNumber()) {
+                                          java.math.BigDecimal numberValue_<%=cid%> = value_<%=cid%>.decimalValue();
+                                    <%    switch (operation) {
+                                              case 7:  %>
+                                                       if(numberValue_<%=cid%> != new java.math.BigDecimal("<%=value%>")) {
+                                                          throw new Exception("The value at attribute <%=path%> is not equal to <%=value%>.")
+                                                       }
+                                                <%     break;
+                                              case 8:  %>
+                                                       if (numberValue_<%=cid%> < new java.math.BigDecimal("<%=value%>")) {
+                                                          throw new Exception("The value at attribute <%=path%> is not superior to <%=value%>.")
+                                                       }
+                                            <%         break;
+                                             case 9:   %>
+                                                       if (numberValue_<%=cid%> > new java.math.BigDecimal("<%=value%>")) {
+                                                          throw new Exception("The value at attribute <%=path%> is not inferior to <%=value%>.")
+                                                       }
+                                            <%         break;
+                                          } %>
+                                      }
+                                      else {
+                                          throw new Exception("The attribute <%=path%> does not contain a number value.");
+                                      }
+                              <%  }
+                                  else {
+
+
+                                  }  %>
+                              }
+                    <%   }  %>
+                     }
+
+          <%    }  %>
+            }
+        }
+    <%
+        if (outgoingConnFilterName != null && outgoingConnFilterName.length() > 0) { %>
+
+            <%=outgoingConnFilterName%> = new <%=outgoingConnFilterName%>Struct();
+        <%
+            for(int j = 0 ; j < columnList.size() ; j++) {
+                  String colLabelBis = columnList.get(j).getLabel(); %>
+                  <%=outgoingConnFilterName%>.<%=colLabelBis%> = <%=incomingConnName%>.<%=colLabelBis%>;
+        <%  }
+       }  %>
+       nb_line_ok_<%=cid%>++;
+
+    }
+    catch (Exception e) {
+        <%   if (outgoingConnRejectName != null && outgoingConnRejectName.length() > 0) { %>
+                <%=outgoingConnRejectName%> = new <%=outgoingConnRejectName%>Struct();
+        <%
+                  for(int i = 0 ; i < columnList.size() ; i++) {
+                        String colLabel = columnList.get(i).getLabel(); %>
+                        <%=outgoingConnRejectName%>.<%=colLabel%> = <%=incomingConnName%>.<%=colLabel%>;
+              <%  }  %>
+                  <%=outgoingConnRejectName%>.errorMessage = e.getMessage();
+        <%  }  %>
+            nb_line_error_<%=cid%>++;
+    }
+
+
+    nb_line_<%=cid%>++ ;
+
+<%
+}
+%>
