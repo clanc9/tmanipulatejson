@@ -1,0 +1,105 @@
+<%@ jet
+imports="
+    org.talend.core.model.process.INode
+    org.talend.core.model.process.ElementParameterParser
+    org.talend.core.model.metadata.IMetadataColumn
+    org.talend.core.model.metadata.IMetadataTable
+    org.talend.core.model.process.IConnection
+    org.talend.core.model.process.IConnectionCategory
+    org.talend.designer.codegen.config.CodeGeneratorArgument
+    java.util.Map
+    java.util.List
+    java.util.ArrayList
+"
+%>
+
+<%
+CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+INode node = (INode)codeGenArgument.getArgument();
+String cid = node.getUniqueName();
+
+String errorValidation = "";
+String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+String inputJsonColumnType = "";
+if (inputJsonColumn != null && inputJsonColumn.length() > 0) {
+    List<? extends IConnection> inConns = node.getIncomingConnections();
+    List<IMetadataColumn> inCols = null;
+    if(inConns != null && inConns.size() > 0) {
+        for(IConnection inConn : inConns) {
+            if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+                IMetadataTable metadata = inConn.getMetadataTable();
+                inCols = metadata.getListColumns();
+                break;
+            }
+        }
+    }
+    if (inCols != null) {
+        for (IMetadataColumn col : inCols) {
+            if (col.getLabel().equals(inputJsonColumn)) {
+                  if (col.getTalendType() != null) {
+                      inputJsonColumnType = col.getTalendType();
+                  }
+                  break;
+            }
+        }
+    }
+}
+
+if (!inputJsonColumnType.equals("id_String")) {
+    errorValidation = "The data type of the input JSON column must be String.";
+}
+
+ArrayList<String> targetAttributesToValidate = new java.util.ArrayList<String>();
+Integer validMappings = 0;
+List<Map<String, String>> mappings = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__MAPPING__");
+for (Map<String, String> mapping : mappings) {
+      String targetAttribute = mapping.get("TARGET_ATTRIBUTE").replace("\"", "");
+      String sourceAttribute = mapping.get("SOURCE_ATTRIBUTE").replace("\"", "");
+      if (targetAttribute != null && targetAttribute.length() > 0 && sourceAttribute != null && sourceAttribute.length() > 0) {
+            validMappings++;
+            if (!targetAttribute.startsWith("/")) {
+                targetAttribute = "/" + targetAttribute;
+            }
+            targetAttributesToValidate.add(targetAttribute);
+     }
+}
+
+if (mappings != null && (mappings.size() == 0 || mappings.size() != validMappings)) {
+      errorValidation = errorValidation + " Pairs of target/source attributes are either missing or incomplete.";
+}
+
+String outputJsonStr = ElementParameterParser.getValue(node, "__OUTPUT_JSON__");
+outputJsonStr = outputJsonStr.replaceAll("[\n\t\r]", "").replace("\"", "\\\"");
+
+%>
+
+com.fasterxml.jackson.databind.ObjectMapper mapper_<%=cid%> = new com.fasterxml.jackson.databind.ObjectMapper();
+com.fasterxml.jackson.databind.JsonNode outputJsonToValidate_<%=cid%> = null;
+
+<% if (outputJsonStr != null && outputJsonStr.length() > 0) { %>
+       try {
+           outputJsonToValidate_<%=cid%> = mapper_<%=cid%>.readTree("<%=outputJsonStr%>");
+           <%
+           for (String targetAttributeToValidate : targetAttributesToValidate) {  %>
+               if (outputJsonToValidate_<%=cid%>.at("<%=targetAttributeToValidate%>").isMissingNode()) {
+                  throw new Exception("The target attribute <%=targetAttributeToValidate%> is not found in the target JSON.");
+               }
+       <%  }  %>
+       }
+       catch (Exception e) {
+           throw e;
+       }
+<%
+}
+else {
+       errorValidation = "Null or empty target JSON tree.";
+}
+%>
+
+if (<%=errorValidation.length() > 0%>) {
+    throw new Exception("<%=errorValidation%>");
+}
+
+int nb_line_<%=cid%> = 0;
+int nb_line_ok_<%=cid%> = 0;
+int nb_line_error_<%=cid%> = 0;

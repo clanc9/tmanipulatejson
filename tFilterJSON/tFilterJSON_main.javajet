@@ -78,7 +78,7 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
 
     try {
         if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
-            String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>;
+            String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>.toString();
             if (inputJsonStr_<%=cid%> != null) {
                 inputJson_<%=cid%> = mapper_<%=cid%>.readTree(inputJsonStr_<%=cid%>);
                 com.fasterxml.jackson.databind.JsonNode value_<%=cid%> = null;

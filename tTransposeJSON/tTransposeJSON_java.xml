@@ -1,0 +1,132 @@
+<COMPONENT>
+  <HEADER
+    PLATEFORM="ALL"
+    SERIAL=""
+    VERSION="1.0"
+    STATUS="ALPHA"
+    COMPATIBILITY="ALL"
+    AUTHOR="Christian Lanctot"
+    RELEASE_DATE="20220301A"
+    STARTABLE="false"
+    LOG4J_ENABLED="true"
+    DATA_AUTO_PROPAGATE="false"
+    SCHEMA_AUTO_PROPAGATE ="true"
+    PARTITIONING="AUTO"
+    HAS_CONDITIONAL_OUTPUTS="true"
+  >
+    <SIGNATURE/>
+  </HEADER>
+
+  <FAMILIES>
+    <FAMILY>JSON</FAMILY>
+  </FAMILIES>
+
+  <DOCUMENTATION>
+  	<URL/>
+  </DOCUMENTATION>
+
+  <CONNECTORS>
+    <CONNECTOR CTYPE="FLOW" MAX_INPUT="1" MAX_OUTPUT="0"/>
+    <CONNECTOR NAME="JSON" CTYPE="FLOW" MAX_OUTPUT="1" COLOR="086438" BASE_SCHEMA="FLOW" />
+		<CONNECTOR NAME="REJECT" CTYPE="FLOW" MAX_OUTPUT="1" LINE_STYLE="2" COLOR="f36300" BASE_SCHEMA="FLOW" SHOW_IF="(REJECT_ON_EXCEPTION=='true')"/>
+    <CONNECTOR CTYPE="ITERATE" MAX_OUTPUT="0" MAX_INPUT="0"/>
+    <CONNECTOR CTYPE="SUBJOB_OK" MAX_INPUT="1" />
+    <CONNECTOR CTYPE="COMPONENT_OK"/>
+    <CONNECTOR CTYPE="COMPONENT_ERROR"/>
+    <CONNECTOR CTYPE="RUN_IF"/>
+  </CONNECTORS>
+
+  <PARAMETERS>
+
+    <PARAMETER NAME="SCHEMA" FIELD="SCHEMA_TYPE" REQUIRED="true" NUM_ROW="10">
+        <TABLE READONLY="true">
+            <COLUMN NAME="transposedJson" TYPE="id_String" READONLY="true" CUSTOM="true" />
+        </TABLE>
+    </PARAMETER>
+    <PARAMETER NAME="SCHEMA_JSON" FIELD="SCHEMA_TYPE" NUM_ROW="10" CONTEXT="JSON">
+        <TABLE READONLY="true">
+            <COLUMN NAME="transposedJson" TYPE="id_String" READONLY="true" CUSTOM="true" />
+        </TABLE>
+    </PARAMETER>
+    <PARAMETER NAME="SCHEMA_REJECT" FIELD="SCHEMA_TYPE" NUM_ROW="10"	CONTEXT="REJECT">
+		  <TABLE READONLY="true">
+		    <COLUMN NAME="errorMessage" TYPE="id_String" LENGTH="255" READONLY="true" CUSTOM="true"/>
+		  </TABLE>
+		</PARAMETER>
+
+    <PARAMETER
+      NAME="INPUT_JSON_COLUMN"
+      FIELD="PREV_COLUMN_LIST"
+      REQUIRED="true"
+      NUM_ROW="20"
+    >
+    </PARAMETER>
+
+    <PARAMETER
+        NAME="OUTPUT_JSON"
+        FIELD="MEMO"
+        NUM_ROW="30"
+        NB_LINES="10"
+    >
+  </PARAMETER>
+
+  <PARAMETER
+    NAME="MAPPING"
+    FIELD="TABLE"
+    NUM_ROW="40"
+    NB_LINES="10"
+  >
+    <ITEMS BASED_ON_SCHEMA="false">
+      <ITEM NAME="TARGET_ATTRIBUTE" FIELD="TEXT" />
+      <ITEM NAME="SOURCE_ATTRIBUTE" FIELD="TEXT" />
+    </ITEMS>
+  </PARAMETER>
+
+  <PARAMETER
+    NAME="REJECT_ON_EXCEPTION"
+    FIELD="RADIO"
+    REQUIRED="true"
+    NUM_ROW="50"
+    GROUP="INVALID_JSON"
+  >
+    <DEFAULT>true</DEFAULT>
+  </PARAMETER>
+
+  <PARAMETER
+    NAME="NULL_ON_EXCEPTION"
+    FIELD="RADIO"
+    REQUIRED="true"
+    NUM_ROW="51"
+    GROUP="INVALID_JSON"
+  >
+    <DEFAULT>false</DEFAULT>
+  </PARAMETER>
+
+    <PARAMETER
+      NAME="DIE_ON_EXCEPTION"
+      FIELD="RADIO"
+      REQUIRED="true"
+      NUM_ROW="52"
+      GROUP="INVALID_JSON"
+    >
+      <DEFAULT>false</DEFAULT>
+  </PARAMETER>
+  </PARAMETERS>
+
+	<ADVANCED_PARAMETERS>
+	</ADVANCED_PARAMETERS>
+
+    <CODEGENERATION>
+    <IMPORTS>
+    		<IMPORT NAME="jackson-core" MODULE="jackson-annotations-2.13.5.jar" MVN="mvn:org.talend.libraries/jackson-core/6.0.0-SNAPSHOT" REQUIRED="true"/>
+        <IMPORT NAME="jackson-databind" MODULE="jackson-core-2.13.5.jar" MVN="mvn:org.talend.libraries/jackson-databind/6.0.0-SNAPSHOT" REQUIRED="true"/>
+        <IMPORT NAME="jackson-annotations" MODULE="jackson-databind-2.13.5.jar" MVN="mvn:org.talend.libraries/jackson-annotations/6.0.0-SNAPSHOT" REQUIRED="true"/>
+    </IMPORTS>
+  </CODEGENERATION>
+
+  <RETURNS>
+    <RETURN NAME="NB_LINE" TYPE="id_Integer" AVAILABILITY="AFTER"/>
+    <RETURN NAME="NB_LINE_OK" TYPE="id_Integer" AVAILABILITY="AFTER"/>
+    <RETURN NAME="NB_LINE_ERROR" TYPE="id_Integer" AVAILABILITY="AFTER"/>
+  </RETURNS>
+</COMPONENT>

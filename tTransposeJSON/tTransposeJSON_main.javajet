@@ -1,0 +1,196 @@
+<%@ jet
+imports="
+      org.talend.core.model.process.IConnection
+      org.talend.core.model.process.INode
+      org.talend.core.model.metadata.IMetadataTable
+      org.talend.core.model.process.ElementParameterParser
+      org.talend.core.model.metadata.IMetadataColumn
+      org.talend.designer.codegen.config.CodeGeneratorArgument
+      org.talend.core.model.process.IConnectionCategory
+      java.util.List
+      java.util.Map
+      java.util.HashMap
+"
+%>
+
+<%
+CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+INode node = (INode)codeGenArgument.getArgument();
+String cid = node.getUniqueName();
+
+String incomingConnName = null;
+List<? extends IConnection> inConns = node.getIncomingConnections();
+if(inConns != null && inConns.size() > 0) {
+    for(IConnection inConn : inConns) {
+        if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+            incomingConnName = inConn.getName();
+            break;
+        }
+    }
+}
+
+
+List<? extends IConnection> outgoingConns = node.getOutgoingSortedConnections();
+if(outgoingConns != null && outgoingConns.size() > 0) {
+    for(IConnection outgoingConn : outgoingConns) {
+        if(outgoingConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) { %>
+            <%=outgoingConn.getName()%> = null;
+    <%  }
+    }
+}
+
+boolean jsonFlow = false;
+String outgoingConnJSONName = null;
+List<? extends IConnection> outgoingConnsJSON = node.getOutgoingConnections("JSON");
+if (outgoingConnsJSON != null && outgoingConnsJSON.size() > 0) {
+    for (IConnection outgoingConnJSON : outgoingConnsJSON) {
+        if (outgoingConnJSON.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnJSONName = outgoingConnJSON.getName();
+              jsonFlow = true;
+              break;
+        }
+    }
+}
+
+boolean rejectFlow = false;
+String outgoingConnRejectName = null;
+List<? extends IConnection> outgoingConnsReject = node.getOutgoingConnections("REJECT");
+if (outgoingConnsReject != null && outgoingConnsReject.size() > 0) {
+    for (IConnection outgoingConnReject : outgoingConnsReject) {
+        if (outgoingConnReject.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnRejectName = outgoingConnReject.getName();
+              rejectFlow = true;
+              break;
+        }
+    }
+}
+
+List<IMetadataColumn> columnList = null;
+List<IMetadataTable> metadatas = node.getMetadataList();
+if(metadatas != null && metadatas.size() > 0) {
+    IMetadataTable metadata = metadatas.get(0);
+    if(metadata != null) {
+        columnList = metadata.getListColumns();
+    }
+}
+
+String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+String outputJsonStr = ElementParameterParser.getValue(node, "__OUTPUT_JSON__");
+outputJsonStr = outputJsonStr.replaceAll("[\n\t\r]", "").replace("\"", "\\\"");
+
+String rejectOnExceptionStr = ElementParameterParser.getValue(node, "__REJECT_ON_EXCEPTION__");
+boolean rejectOnException = (rejectOnExceptionStr!=null&&!("").equals(rejectOnExceptionStr))?("true").equals(rejectOnExceptionStr):false;
+
+String nullOnExceptionStr = ElementParameterParser.getValue(node, "__NULL_ON_EXCEPTION__");
+boolean nullOnException = (nullOnExceptionStr!=null&&!("").equals(nullOnExceptionStr))?("true").equals(nullOnExceptionStr):false;
+
+String dieOnExceptionStr = ElementParameterParser.getValue(node, "__DIE_ON_EXCEPTION__");
+boolean dieOnException = (dieOnExceptionStr!=null&&!("").equals(dieOnExceptionStr))?("true").equals(dieOnExceptionStr):false;
+
+HashMap<String, String> targetAttributesToTranspose = new HashMap<String, String>();
+List<Map<String, String>> mappings = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__MAPPING__");
+for (Map<String, String> mapping : mappings) {
+      String targetAttributeTmp = mapping.get("TARGET_ATTRIBUTE").replace("\"", "");
+      if (!targetAttributeTmp.startsWith("/")) {
+          targetAttributeTmp = "/" + targetAttributeTmp;
+      }
+      String sourceAttribute = mapping.get("SOURCE_ATTRIBUTE").replace("\"", "");
+      if (!sourceAttribute.startsWith("/")) {
+          sourceAttribute = "/" + sourceAttribute;
+      }
+      // target in output_tree, source in input JSON string
+      targetAttributesToTranspose.put(targetAttributeTmp, sourceAttribute);
+}
+
+if(incomingConnName != null && columnList != null && columnList.size() > 0) {  %>
+    com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
+    com.fasterxml.jackson.databind.JsonNode outputJson_<%=cid%> =  mapper_<%=cid%>.readTree("<%=outputJsonStr%>");
+
+    try {
+
+  <%    if (jsonFlow) {  %>
+            <%=outgoingConnJSONName%> = new <%=outgoingConnJSONName%>Struct();
+        <%  }  %>
+        if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
+
+            String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>.toString();
+            inputJson_<%=cid%> = mapper_<%=cid%>.readTree(inputJsonStr_<%=cid%>);
+      <%
+            for (String targetAttributeInOutputTree : targetAttributesToTranspose.keySet()) {
+                String sourceAttributeInInputJson = targetAttributesToTranspose.get(targetAttributeInOutputTree);  %>
+
+                com.fasterxml.jackson.databind.JsonNode inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=sourceAttributeInInputJson%>");
+                if (!inputNode_<%=cid%>.isMissingNode()) {
+
+              <%
+                    Integer pos = targetAttributeInOutputTree.lastIndexOf("/");
+                    String targetAttribute = targetAttributeInOutputTree.substring(pos + 1);
+                    if (pos > 0) {
+                        String path = targetAttributeInOutputTree.substring(0, pos);  %>
+                        com.fasterxml.jackson.databind.JsonNode outputNode_<%=cid%> = outputJson_<%=cid%>.at("<%=path%>");
+            <%      }
+                    else {  %>
+                        com.fasterxml.jackson.databind.JsonNode outputNode_<%=cid%> = outputJson_<%=cid%>;
+              <%    }  %>
+
+                    if (!outputNode_<%=cid%>.isMissingNode()) {
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) outputNode_<%=cid%>).replace("<%=targetAttribute%>", inputNode_<%=cid%>);
+                    }
+                }
+        <%  }  %>
+        }
+    <%  if (jsonFlow) {
+              for(int i = 0 ; i < columnList.size() ; i++) {
+                  String colLabel = columnList.get(i).getLabel();
+                  if (!colLabel.equals("transposedJson"))  {  %>
+                      <%=outgoingConnJSONName%>.<%=colLabel%> = <%=incomingConnName%>.<%=colLabel%>;
+          <%      }
+              }  %>
+              <%=outgoingConnJSONName%>.transposedJson = mapper_<%=cid%>.writeValueAsString(outputJson_<%=cid%>);
+<%      }  %>
+        nb_line_ok_<%=cid%>++;
+    }
+    catch (Exception e) {
+    <%  if (dieOnException) { %>
+            throw e;
+    <%  }
+        else { %>
+            nb_line_error_<%=cid%>++;
+
+      <%    if (rejectOnException && rejectFlow) {  %>
+                  <%=outgoingConnRejectName%> = new <%=outgoingConnRejectName%>Struct();
+          <%      for(int l = 0 ; l < columnList.size() ; l++) {
+                      String colLabelTris = columnList.get(l).getLabel();
+                      if (!colLabelTris.equals("transposedJson"))  {  %>
+                          <%=outgoingConnRejectName%>.<%=colLabelTris%> = <%=incomingConnName%>.<%=colLabelTris%>;
+                  <%  }
+                 }  %>
+                 <%=outgoingConnRejectName%>.errorMessage = e.getMessage();
+                 <%=outgoingConnRejectName%>.transposedJson = e.getMessage();
+         <%      if (jsonFlow) {  %>
+                      <%=outgoingConnJSONName%> = null;
+         <%      }
+            }
+            else if (nullOnException && jsonFlow) {
+                for(int m = 0 ; m < columnList.size() ; m++) {
+                    String colLabelQuatro = columnList.get(m).getLabel();
+                    if (!colLabelQuatro.equals("transposedJson")) {  %>
+                        <%=outgoingConnJSONName%>.<%=colLabelQuatro%> = <%=incomingConnName%>.<%=colLabelQuatro%>;
+                <%  }
+                }  %>
+                <%=outgoingConnJSONName%>.transposedJson = null;
+
+          <%   if (rejectFlow) {  %>
+                  <%=outgoingConnRejectName%> = null;
+        <%     }
+            }
+            else if (jsonFlow) {  %>
+                <%=outgoingConnJSONName%> = null;
+      <%    }
+        } %>
+    }
+    nb_line_<%=cid%>++;
+
+<%
+}
+%>

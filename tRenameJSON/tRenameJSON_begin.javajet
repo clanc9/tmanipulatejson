@@ -1,0 +1,72 @@
+<%@ jet
+imports="
+    org.talend.core.model.process.INode
+    org.talend.core.model.process.ElementParameterParser
+    org.talend.core.model.metadata.IMetadataColumn
+    org.talend.core.model.metadata.IMetadataTable
+    org.talend.core.model.process.IConnection
+    org.talend.core.model.process.IConnectionCategory
+    org.talend.designer.codegen.config.CodeGeneratorArgument
+    java.util.Map
+    java.util.List
+"
+%>
+
+  <%
+  	CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+  	INode node = (INode)codeGenArgument.getArgument();
+  	String cid = node.getUniqueName();
+
+    String errorValidation = "";
+    String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+    String inputJsonColumnType = "";
+    if (inputJsonColumn != null && inputJsonColumn.length() > 0) {
+        List<? extends IConnection> inConns = node.getIncomingConnections();
+        List<IMetadataColumn> inCols = null;
+        if(inConns != null && inConns.size() > 0) {
+            for(IConnection inConn : inConns) {
+                if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+                    IMetadataTable metadata = inConn.getMetadataTable();
+                    inCols = metadata.getListColumns();
+                    break;
+                }
+            }
+        }
+        if (inCols != null) {
+            for (IMetadataColumn col : inCols) {
+                if (col.getLabel().equals(inputJsonColumn)) {
+                    if (col.getTalendType() != null) {
+                        inputJsonColumnType = col.getTalendType();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!inputJsonColumnType.equals("id_String")) {
+        errorValidation = "The data type of the input JSON column must be String.";
+    }
+
+    Integer validAttributes = 0;
+    List<Map<String, String>> attributes = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__ATTRIBUTES__");
+    for (Map<String, String> attribute : attributes) {
+          String path = attribute.get("PATH");
+          String newName = attribute.get("NEW_NAME");
+          if (path != null && path.replace("\"", "").length() > 0 && newName != null && newName.replace("\"", "").length() > 0) {
+              validAttributes++;
+          }
+    }
+
+    if (attributes != null && (attributes.size() == 0 || attributes.size() != validAttributes)) {
+        errorValidation = errorValidation + " Attribute and/or new name is missing.";
+    }
+  %>
+
+  if (<%=errorValidation.length() > 0%>) {
+      throw new Exception("<%=errorValidation%>");
+  }
+
+  int nb_line_<%=cid%> = 0;
+  int nb_line_ok_<%=cid%> = 0;
+  int nb_line_error_<%=cid%> = 0;
