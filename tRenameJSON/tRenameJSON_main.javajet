@@ -9,10 +9,6 @@ imports="
       org.talend.core.model.process.IConnectionCategory
       java.util.List
       java.util.Map
-      java.util.HashMap
-      java.util.HashSet
-      java.util.Set
-      java.util.ArrayList
 "
 %>
 
@@ -87,51 +83,45 @@ boolean nullOnException = (nullOnExceptionStr!=null&&!("").equals(nullOnExceptio
 String dieOnExceptionStr = ElementParameterParser.getValue(node, "__DIE_ON_EXCEPTION__");
 boolean dieOnException = (dieOnExceptionStr!=null&&!("").equals(dieOnExceptionStr))?("true").equals(dieOnExceptionStr):false;
 
-Map<String, String> attributesToRename = new HashMap<String, String>();
-List<Map<String, String>> attributes = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__ATTRIBUTES__");
-for (Map<String, String> attribute : attributes) {
-    String path = attribute.get("PATH").replace("\"", "");
-    if (!path.startsWith("/")) {
-        path = "/" + path;
-    }
-    attributesToRename.put(path, attribute.get("NEW_NAME").replace("\"", ""));
-}
 
 if(incomingConnName != null && columnList != null && columnList.size() > 0) {  %>
     com.fasterxml.jackson.databind.ObjectMapper mapper_<%=cid%> = new com.fasterxml.jackson.databind.ObjectMapper();
-    com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
 
     try {
   <%    if (jsonFlow) {  %>
             <%=outgoingConnJSONName%> = new <%=outgoingConnJSONName%>Struct();
         <%  }  %>
+        com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
         if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
-            String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>.toString();
-            inputJson_<%=cid%> = mapper_<%=cid%>.readTree(inputJsonStr_<%=cid%>);
+            inputJson_<%=cid%> = mapper_<%=cid%>.readTree(<%=incomingConnName%>.<%=inputJsonColumn%>.toString());
 
-            com.fasterxml.jackson.databind.JsonNode value_<%=cid%> = null;
             com.fasterxml.jackson.databind.JsonNode inputNode_<%=cid%> = null;
+            com.fasterxml.jackson.databind.JsonNode value_<%=cid%>= null;
             <%
-            for (Map.Entry<String, String> attributeToRename : attributesToRename.entrySet()) {  %>
-              <%
-                  String path = attributeToRename.getKey();
-                %>
-                  value_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
-                  if (!value_<%=cid%>.isMissingNode())  {
+            List<Map<String, String>> attributesToRename = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__ATTRIBUTES__");
+            for (Map<String, String> attributeToRename : attributesToRename) {
+                String path = attributeToRename.get("PATH").replace("\"", "");
+                if (!path.startsWith("/")) {
+                    path = "/" + path;
+                }
+            %>
+
+                value_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
+                if (!value_<%=cid%>.isMissingNode())  {
             <%
-                      String newName =attributeToRename.getValue();
-                      Integer pos = path.lastIndexOf("/");
-                      String attribute = path.substring(pos+1);
-                      if (pos > 0) {
-                            path = path.substring(0, pos);  %>
-                            inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
-                <%    }
-                      else {  %>
-                            inputNode_<%=cid%> = inputJson_<%=cid%>;
-              <%      }%>
-                      ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).remove("<%=attribute%>");
-                      ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).set("<%=newName%>", value_<%=cid%>);
-                  }
+                    String newName = attributeToRename.get("NEW_NAME").replace("\"", "");
+                    Integer pos = path.lastIndexOf("/");
+                    String attribute = path.substring(pos+1);
+                    if (pos > 0) {
+                          path = path.substring(0, pos);  %>
+                          inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
+              <%    }
+                    else {  %>
+                          inputNode_<%=cid%> = inputJson_<%=cid%>;
+            <%      }%>
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).remove("<%=attribute%>");
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).set("<%=newName%>", value_<%=cid%>);
+                }
         <%  }  %>
         }
     <%  if (jsonFlow) {

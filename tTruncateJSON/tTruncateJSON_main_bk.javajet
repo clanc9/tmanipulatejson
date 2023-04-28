@@ -1,0 +1,192 @@
+<%@ jet
+imports="
+      org.talend.core.model.process.IConnection
+      org.talend.core.model.process.INode
+      org.talend.core.model.metadata.IMetadataTable
+      org.talend.core.model.process.ElementParameterParser
+      org.talend.core.model.metadata.IMetadataColumn
+      org.talend.designer.codegen.config.CodeGeneratorArgument
+      org.talend.core.model.process.IConnectionCategory
+      java.util.List
+      java.util.ArrayList
+      java.util.Map
+"
+%>
+
+<%
+CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+INode node = (INode)codeGenArgument.getArgument();
+String cid = node.getUniqueName();
+
+
+String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+String incomingConnName = null;
+List<? extends IConnection> inConns = node.getIncomingConnections();
+if(inConns != null && inConns.size() > 0) {
+    for(IConnection inConn : inConns) {
+        if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+            incomingConnName = inConn.getName();
+            break;
+        }
+    }
+}
+
+String rejectOnExceptionStr = ElementParameterParser.getValue(node, "__REJECT_ON_EXCEPTION__");
+boolean rejectOnException = (rejectOnExceptionStr!=null&&!("").equals(rejectOnExceptionStr))?("true").equals(rejectOnExceptionStr):false;
+
+String dieOnExceptionStr = ElementParameterParser.getValue(node, "__DIE_ON_EXCEPTION__");
+boolean dieOnException = (dieOnExceptionStr!=null&&!("").equals(dieOnExceptionStr))?("true").equals(dieOnExceptionStr):false;
+
+String emptyJsonToNullStr = ElementParameterParser.getValue(node, "__EMPTY_JSON_TO_NULL__");
+boolean emptyJsonToNull = (emptyJsonToNullStr!=null&&!("").equals(emptyJsonToNullStr))?("true").equals(emptyJsonToNullStr):false;
+
+ArrayList<String> attributesToRemove = new ArrayList<String>();
+List<Map<String, String>> attributes = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__ATTRIBUTES__");
+for (Map<String, String> attribute : attributes) {
+    String path = attribute.get("PATH").replace("\"", "");
+    if (!path.startsWith("/")) {
+        path = "/" + path;
+    }
+    attributesToRemove.add(path);
+}
+
+%>
+
+com.fasterxml.jackson.databind.ObjectMapper mapper_<%=cid%> = new com.fasterxml.jackson.databind.ObjectMapper();
+com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
+String exceptionRaisedMessage_<%=cid%> = null;
+
+try {
+    if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
+        String inputJsonStr_<%=cid%> = <%=incomingConnName%>.<%=inputJsonColumn%>.toString();
+        if (inputJsonStr_<%=cid%>.length() > 0) {
+            inputJson_<%=cid%> = mapper_<%=cid%>.readTree(inputJsonStr_<%=cid%>);
+
+            com.fasterxml.jackson.databind.JsonNode inputNode_<%=cid%> = null;
+      <%
+            for (String path : attributesToRemove) {  %>
+
+                inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
+                if (!inputNode_<%=cid%>.isMissingNode()) {
+                    inputNode_<%=cid%> = inputJson_<%=cid%>;
+          <%
+                    Integer pos = path.lastIndexOf("/");
+                    String attribute = path.substring(pos+1);
+                    if (pos > 0) {
+                          path = path.substring(0, pos);  %>
+                          inputNode_<%=cid%> = inputNode_<%=cid%>.at("<%=path%>");
+              <%    }  %>
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).remove("<%=attribute%>");
+                }
+        <%  }  %>
+        }
+    }
+}
+catch (Exception e) {
+    if (<%=dieOnException%>) {
+        throw e;
+    }
+    else if (<%=rejectOnException%>) {
+        exceptionRaisedMessage_<%=cid%> = "Invalid input JSON string: " + e.getMessage();
+    }
+}
+
+
+<%
+
+List<? extends IConnection> outgoingConns = node.getOutgoingSortedConnections();
+if(outgoingConns != null && outgoingConns.size() > 0) {
+    for(IConnection outgoingConn : outgoingConns) {
+        if(outgoingConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) { %>
+            <%=outgoingConn.getName()%> = null;
+    <%  }
+    }
+}
+
+String outgoingConnTruncationName = null;
+List<? extends IConnection> outgoingConnsTruncation = node.getOutgoingConnections("TRUNCATION");
+if (outgoingConnsTruncation != null && outgoingConnsTruncation.size() > 0) {
+    for (IConnection outgoingConnTruncation : outgoingConnsTruncation) {
+        if (outgoingConnTruncation.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnTruncationName = outgoingConnTruncation.getName();
+              break;
+        }
+    }
+}
+
+String outgoingConnRejectName = null;
+List<? extends IConnection> outgoingConnsReject = node.getOutgoingConnections("REJECT");
+if (outgoingConnsReject != null && outgoingConnsReject.size() > 0) {
+    for (IConnection outgoingConnReject : outgoingConnsReject) {
+        if (outgoingConnReject.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+              outgoingConnRejectName = outgoingConnReject.getName();
+              break;
+        }
+    }
+}
+
+List<IMetadataColumn> columnList = null;
+List<IMetadataTable> metadatas = node.getMetadataList();
+if(metadatas != null && metadatas.size() > 0) {
+    IMetadataTable metadata = metadatas.get(0);
+    if(metadata != null) {
+        columnList = metadata.getListColumns();
+    }
+}
+
+
+
+if(incomingConnName != null && columnList != null && columnList.size() > 0) {
+%>
+      if (exceptionRaisedMessage_<%=cid%> != null) {
+          <%    if (outgoingConnRejectName != null && outgoingConnRejectName.length() > 0) { %>
+
+                    <%=outgoingConnRejectName%> = new <%=outgoingConnRejectName%>Struct();
+            <%
+                      for(int i = 0 ; i < columnList.size() ; i++) {
+                            String colLabelBis = columnList.get(i).getLabel();
+                            if (!colLabelBis.equals("truncatedJson") && !colLabelBis.equals("errorMessage")) { %>
+                                <%=outgoingConnRejectName%>.<%=colLabelBis%> = <%=incomingConnName%>.<%=colLabelBis%>;
+                        <%  }
+                      }  %>
+                      <%=outgoingConnRejectName%>.truncatedJson = null;
+                      <%=outgoingConnRejectName%>.errorMessage = exceptionRaisedMessage_<%=cid%>;
+            <%  }  %>
+            nb_line_reject_<%=cid%>++;
+      }
+      else {
+          <%   if (outgoingConnTruncationName != null && outgoingConnTruncationName.length() > 0) { %>
+
+                  <%=outgoingConnTruncationName%> = new <%=outgoingConnTruncationName%>Struct();
+              <%
+                  for(int j = 0 ; j < columnList.size() ; j++) {
+                        String colLabel = columnList.get(j).getLabel();
+                        if (!colLabel.equals("truncatedJson")) { %>
+                            <%=outgoingConnTruncationName%>.<%=colLabel%> = <%=incomingConnName%>.<%=colLabel%>;
+                    <%  }
+                  }  %>
+                  if (inputJson_<%=cid%> != null) {
+                      if (inputJson_<%=cid%>.size() > 0) {
+                          <%=outgoingConnTruncationName%>.truncatedJson = mapper_<%=cid%>.writeValueAsString(inputJson_<%=cid%>);
+                      }
+                      else {
+                    <%    if (emptyJsonToNull) { %>
+                              <%=outgoingConnTruncationName%>.truncatedJson = null;
+                    <%    }
+                          else {  %>
+                              <%=outgoingConnTruncationName%>.truncatedJson = "{}";
+                  <%      }  %>
+                      }
+                  }
+                  else {
+                      <%=outgoingConnTruncationName%>.truncatedJson = null;
+                  }
+        <%  }  %>
+        nb_line_ok_<%=cid%>++;
+    }
+
+<%
+}
+%>
+
+nb_line_<%=cid%>++ ;

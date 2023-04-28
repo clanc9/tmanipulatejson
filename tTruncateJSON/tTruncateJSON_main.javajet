@@ -28,7 +28,6 @@ if(inConns != null && inConns.size() > 0) {
     }
 }
 
-
 List<? extends IConnection> outgoingConns = node.getOutgoingSortedConnections();
 if(outgoingConns != null && outgoingConns.size() > 0) {
     for(IConnection outgoingConn : outgoingConns) {
@@ -74,8 +73,6 @@ if(metadatas != null && metadatas.size() > 0) {
 }
 
 String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
-String outputJsonStr = ElementParameterParser.getValue(node, "__OUTPUT_JSON__");
-outputJsonStr = outputJsonStr.replaceAll("[\n\t\r]", "").replace("\"", "\\\"");
 
 String rejectOnExceptionStr = ElementParameterParser.getValue(node, "__REJECT_ON_EXCEPTION__");
 boolean rejectOnException = (rejectOnExceptionStr!=null&&!("").equals(rejectOnExceptionStr))?("true").equals(rejectOnExceptionStr):false;
@@ -86,63 +83,63 @@ boolean nullOnException = (nullOnExceptionStr!=null&&!("").equals(nullOnExceptio
 String dieOnExceptionStr = ElementParameterParser.getValue(node, "__DIE_ON_EXCEPTION__");
 boolean dieOnException = (dieOnExceptionStr!=null&&!("").equals(dieOnExceptionStr))?("true").equals(dieOnExceptionStr):false;
 
+String emptyJsonToNullStr = ElementParameterParser.getValue(node, "__EMPTY_JSON_TO_NULL__");
+boolean emptyJsonToNull = (emptyJsonToNullStr!=null&&!("").equals(emptyJsonToNullStr))?("true").equals(emptyJsonToNullStr):false;
+
+
 if(incomingConnName != null && columnList != null && columnList.size() > 0) {  %>
-    com.fasterxml.jackson.databind.JsonNode outputJson_<%=cid%> =  mapper_<%=cid%>.readTree("<%=outputJsonStr%>");
+    com.fasterxml.jackson.databind.ObjectMapper mapper_<%=cid%> = new com.fasterxml.jackson.databind.ObjectMapper();
 
     try {
-
   <%    if (jsonFlow) {  %>
             <%=outgoingConnJSONName%> = new <%=outgoingConnJSONName%>Struct();
         <%  }  %>
         com.fasterxml.jackson.databind.JsonNode inputJson_<%=cid%> = null;
 
         if (<%=incomingConnName%>.<%=inputJsonColumn%> != null) {
-
             inputJson_<%=cid%> = mapper_<%=cid%>.readTree(<%=incomingConnName%>.<%=inputJsonColumn%>.toString());
+
             com.fasterxml.jackson.databind.JsonNode inputNode_<%=cid%> = null;
-      <%
+            <%
+            List<Map<String, String>> attributesToRemove = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__ATTRIBUTES__");
+            for (Map<String, String> attributeToRemove : attributesToRemove) {
+                String path = attributeToRemove.get("PATH").replace("\"", "");
+                if (!path.startsWith("/")) {
+                    path = "/" + path;
+                }
+            %>
 
-            List<Map<String, String>> mappings = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__MAPPING__");
-            for (Map<String, String> mapping : mappings) {
-                  String sourceAttributeInInputJson = mapping.get("SOURCE_ATTRIBUTE").replace("\"", "");
-                  if (!sourceAttributeInInputJson.startsWith("/")) {
-                      sourceAttributeInInputJson = "/" + sourceAttributeInInputJson;
-                  }  %>
+                inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
+                if (!inputNode_<%=cid%>.isMissingNode()) {
+          <%
+                    Integer pos = path.lastIndexOf("/");
+                    String attribute = path.substring(pos+1);
+                    if (pos > 0) {
+                          path = path.substring(0, pos);  %>
+                          inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
+              <%    }
+                    else { %>
+                          inputNode_<%=cid%> = inputJson_<%=cid%>;
+              <%    }%>
 
-                  inputNode_<%=cid%> = inputJson_<%=cid%>.at("<%=sourceAttributeInInputJson%>");
-                  if (!inputNode_<%=cid%>.isMissingNode()) {
-
-                  <%
-                        String targetAttributeInOutputTree = mapping.get("TARGET_ATTRIBUTE").replace("\"", "");
-                        if (!targetAttributeInOutputTree.startsWith("/")) {
-                            targetAttributeInOutputTree = "/" + targetAttributeInOutputTree;
-                        }
-
-                        Integer pos = targetAttributeInOutputTree.lastIndexOf("/");
-                        String targetAttribute = targetAttributeInOutputTree.substring(pos + 1);
-                        if (pos > 0) {
-                            String path = targetAttributeInOutputTree.substring(0, pos);  %>
-                            com.fasterxml.jackson.databind.JsonNode outputNode_<%=cid%> = outputJson_<%=cid%>.at("<%=path%>");
-                <%      }
-                        else {  %>
-                            com.fasterxml.jackson.databind.JsonNode outputNode_<%=cid%> = outputJson_<%=cid%>;
-                  <%    }  %>
-
-                        if (!outputNode_<%=cid%>.isMissingNode()) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) outputNode_<%=cid%>).replace("<%=targetAttribute%>", inputNode_<%=cid%>);
-                        }
-                    }
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) inputNode_<%=cid%>).remove("<%=attribute%>");
+                }
         <%  }  %>
         }
     <%  if (jsonFlow) {
-              for(int i = 0 ; i < columnList.size() ; i++) {
-                  String colLabel = columnList.get(i).getLabel();
-                  if (!colLabel.equals("transposedJson"))  {  %>
-                      <%=outgoingConnJSONName%>.<%=colLabel%> = <%=incomingConnName%>.<%=colLabel%>;
-          <%      }
-              }  %>
-              <%=outgoingConnJSONName%>.transposedJson = mapper_<%=cid%>.writeValueAsString(outputJson_<%=cid%>);
-<%      }  %>
+            for(int i = 0 ; i < columnList.size() ; i++) {
+                String colLabel = columnList.get(i).getLabel();
+                if (!colLabel.equals("truncatedJson"))  {  %>
+                    <%=outgoingConnJSONName%>.<%=colLabel%> = <%=incomingConnName%>.<%=colLabel%>;
+        <%      }
+            } %>
+            if ((inputJson_<%=cid%>.size() == 0) && <%=emptyJsonToNull%>) {
+                <%=outgoingConnJSONName%>.truncatedJson = null;
+            }
+            else {
+                <%=outgoingConnJSONName%>.truncatedJson = mapper_<%=cid%>.writeValueAsString(inputJson_<%=cid%>);
+            }
+    <%  }  %>
         nb_line_ok_<%=cid%>++;
     }
     catch (Exception e) {
@@ -156,24 +153,24 @@ if(incomingConnName != null && columnList != null && columnList.size() > 0) {  %
                   <%=outgoingConnRejectName%> = new <%=outgoingConnRejectName%>Struct();
           <%      for(int l = 0 ; l < columnList.size() ; l++) {
                       String colLabelTris = columnList.get(l).getLabel();
-                      if (!colLabelTris.equals("transposedJson"))  {  %>
+                      if (!colLabelTris.equals("truncatedJson"))  {  %>
                           <%=outgoingConnRejectName%>.<%=colLabelTris%> = <%=incomingConnName%>.<%=colLabelTris%>;
                   <%  }
                  }  %>
                  <%=outgoingConnRejectName%>.errorMessage = e.getMessage();
-                 <%=outgoingConnRejectName%>.transposedJson = e.getMessage();
+                 <%=outgoingConnRejectName%>.truncatedJson = null;
          <%      if (jsonFlow) {  %>
-                      <%=outgoingConnJSONName%> = null;
+                         <%=outgoingConnJSONName%> = null;
          <%      }
             }
             else if (nullOnException && jsonFlow) {
                 for(int m = 0 ; m < columnList.size() ; m++) {
                     String colLabelQuatro = columnList.get(m).getLabel();
-                    if (!colLabelQuatro.equals("transposedJson")) {  %>
+                    if (!colLabelQuatro.equals("truncatedJson")) {  %>
                         <%=outgoingConnJSONName%>.<%=colLabelQuatro%> = <%=incomingConnName%>.<%=colLabelQuatro%>;
                 <%  }
                 }  %>
-                <%=outgoingConnJSONName%>.transposedJson = null;
+                <%=outgoingConnJSONName%>.truncatedJson = null;
 
           <%   if (rejectFlow) {  %>
                   <%=outgoingConnRejectName%> = null;
@@ -184,8 +181,7 @@ if(incomingConnName != null && columnList != null && columnList.size() > 0) {  %
       <%    }
         } %>
     }
-    nb_line_<%=cid%>++;
-
+    nb_line_<%=cid%>++ ;
 <%
 }
 %>
