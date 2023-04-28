@@ -9,74 +9,117 @@ imports="
     org.talend.designer.codegen.config.CodeGeneratorArgument
     java.util.Map
     java.util.List
+    java.math.BigDecimal
 "
 %>
 
-  <%
-  	CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
-  	INode node = (INode)codeGenArgument.getArgument();
-  	String cid = node.getUniqueName();
+<%
+CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
+INode node = (INode)codeGenArgument.getArgument();
+String cid = node.getUniqueName();
 
-    String errorValidation = "";
-    String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
-    String inputJsonColumnType = "";
-    if (inputJsonColumn != null && inputJsonColumn.length() > 0) {
-        List<? extends IConnection> inConns = node.getIncomingConnections();
-        List<IMetadataColumn> inCols = null;
-        if(inConns != null && inConns.size() > 0) {
-            for(IConnection inConn : inConns) {
-                if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
-                    IMetadataTable metadata = inConn.getMetadataTable();
-                    inCols = metadata.getListColumns();
-                    break;
-                }
-            }
-        }
-        if (inCols != null) {
-            for (IMetadataColumn col : inCols) {
-                if (col.getLabel().equals(inputJsonColumn)) {
-                    if (col.getTalendType() != null) {
-                        inputJsonColumnType = col.getTalendType();
-                    }
-                    break;
-                }
+String errorValidation = "";
+String inputJsonColumn = ElementParameterParser.getValue(node, "__INPUT_JSON_COLUMN__");
+String inputJsonColumnType = "";
+if (inputJsonColumn != null && inputJsonColumn.length() > 0) {
+    List<? extends IConnection> inConns = node.getIncomingConnections();
+    List<IMetadataColumn> inCols = null;
+    if(inConns != null && inConns.size() > 0) {
+        for(IConnection inConn : inConns) {
+            if(inConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)) {
+                IMetadataTable metadata = inConn.getMetadataTable();
+                inCols = metadata.getListColumns();
+                break;
             }
         }
     }
-
-    if (!inputJsonColumnType.equals("id_String")) {
-          errorValidation = "The data type of the input JSON column must be String.";
+    if (inCols != null) {
+        for (IMetadataColumn col : inCols) {
+            if (col.getLabel().equals(inputJsonColumn)) {
+                if (col.getTalendType() != null) {
+                    inputJsonColumnType = col.getTalendType();
+                }
+                break;
+            }
+        }
     }
+}
 
-    Integer validConditions = 0;
-    List<Map<String, String>> conditions = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__CONDITIONS__");
-    for (Map<String, String> condition : conditions) {
-          String path = condition.get("PATH");
-          String operation = condition.get("OPERATION");
-          if (path != null && operation != null && path.replace("\"", "").length() > 0 && operation.replace("\"", "").length() > 0) {
-              if (!(operation.equals("1") || operation.equals("2"))) {
-                  String value = condition.get("VALUE");
-                  if (value != null && value.replace("\"", "").length() > 0) {
-                      validConditions++;
+if (!inputJsonColumnType.equals("id_String")) {
+      errorValidation = "The data type of the input JSON column must be String.";
+}
+
+String datePatternInJson = "yyyy-MM-dd HH:mm:ss";
+String datePatternInJsonParam = ElementParameterParser.getValue(node, "__DATE_PATTERN_IN_JSON__");
+if (datePatternInJsonParam != null && datePatternInJsonParam.replace("\"", "").length() > 0) {
+    datePatternInJson = datePatternInJsonParam.replace("\"", "");
+}
+
+String decimalSeparator = ".";
+String decimalSeparatorParam = ElementParameterParser.getValue(node, "__DECIMAL_SEPARATOR__");
+if (decimalSeparatorParam != null && decimalSeparatorParam.length() == 1) {
+    decimalSeparator = decimalSeparatorParam;
+}
+
+
+Integer validConditions = 0;
+List<Map<String, String>> conditions = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__CONDITIONS__");
+for (Map<String, String> condition : conditions) {
+      String path = condition.get("PATH").replace("\"", "");
+      String operation = condition.get("OPERATION").replace("\"", "");
+      if (path != null && operation != null && path.length() > 0 && operation.length() > 0) {
+          Integer op = Integer.valueOf(operation);
+          if (op > 4) {
+              String value = condition.get("VALUE").trim().replace("\"", "");
+              if (value != null && value.length() > 0) {
+                  validConditions++;
+
+                  // validate
+                  //<ITEM NAME="DATE_SUPERIOR_TO" VALUE="7"/>
+                  //<ITEM NAME="DATE_INFERIOR_TO" VALUE="8"/>
+
+                  //<ITEM NAME="NUMBER_EQUALS" VALUE="9"/>
+                  //<ITEM NAME="NUMBER_SUPERIOR_TO" VALUE="10"/>
+                  //<ITEM NAME="NUMBER_INFERIOR_TO" VALUE="11"/>
+                  switch (op) {
+                        case 6:   if (!(value.toLowerCase().equals("true") || value.toLowerCase().equals("false"))) {
+                                      errorValidation = errorValidation + " Invalid boolean value in condition.";
+                                  }
+                                  break;
+                        case 7:
+                        case 8:
+
+
+                                  break;
+                        case 9:
+                        case 10:
+                        case 11:
+                                  try {
+                                      new BigDecimal(value.replace(decimalSeparator, "."));
+                                  }
+                                  catch (Exception e) {
+                                      errorValidation = errorValidation + " Invalid number value in condition.";
+                                  }
+                                  break;
                   }
               }
-              else {
-                  validConditions++;
-              }
+          }
+          else {
+              validConditions++;
           }
       }
+  }
 
-   if (conditions != null && (conditions.size() == 0 || conditions.size() != validConditions)) {
-        errorValidation = errorValidation + " Filtering conditions are either missing or incomplete.";
-   }
+if (conditions != null && (conditions.size() == 0 || conditions.size() != validConditions)) {
+    errorValidation = errorValidation + " Filtering conditions are either missing or incomplete.";
+}
 
 %>
 
-   if (<%=errorValidation.length() > 0%>) {
-        throw new Exception("<%=errorValidation%>");
-   }
+if (<%=errorValidation.length() > 0%>) {
+    throw new Exception("<%=errorValidation%>");
+}
 
-
-  int nb_line_<%=cid%> = 0;
-  int nb_line_ok_<%=cid%> = 0;
-  int nb_line_error_<%=cid%> = 0;
+int nb_line_<%=cid%> = 0;
+int nb_line_ok_<%=cid%> = 0;
+int nb_line_error_<%=cid%> = 0;
