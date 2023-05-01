@@ -250,7 +250,7 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
           <%  }  %>
               <%=outgoingConnRejectName%>.errorMessage = e.getMessage();
     <%  }  %>
-        nb_line_error_<%=cid%>++;
+        nb_line_reject_<%=cid%>++;
 
     }
 
