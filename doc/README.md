@@ -213,7 +213,7 @@ The .jar are included in the tFilterJSON component folder. The components have n
 2. Select the **input JSON column** from the dropdown list.  
  *The data type of the input JSON column must be String, otherwise an exception is thrown upon execution of the job.*
 
-3. Enter the **Target (template) JSON** string. Values should be given for every key. If the key does not exist in the input JSON string, then the value entered in the template will be used as default.  
+3. Enter the **Target (template) JSON** string. Do not enclose in double quotes. Values should be given for every key. If the key does not exist in the input JSON string, then the value entered in the template will be used as default.  
  *This template cannot be an array. Unescaped double quotes, carriage returns and tabs can be used. The component will format the entry as needed.*
 
 4. Use the **+** and **X** buttons to add or remove a mapping between the new JSON string and the input one, respectively.

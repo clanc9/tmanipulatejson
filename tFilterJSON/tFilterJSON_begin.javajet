@@ -73,14 +73,6 @@ for (Map<String, String> condition : conditions) {
               String value = condition.get("VALUE").trim().replace("\"", "");
               if (value != null && value.length() > 0) {
                   validConditions++;
-
-                  // validate
-                  //<ITEM NAME="DATE_SUPERIOR_TO" VALUE="7"/>
-                  //<ITEM NAME="DATE_INFERIOR_TO" VALUE="8"/>
-
-                  //<ITEM NAME="NUMBER_EQUALS" VALUE="9"/>
-                  //<ITEM NAME="NUMBER_SUPERIOR_TO" VALUE="10"/>
-                  //<ITEM NAME="NUMBER_INFERIOR_TO" VALUE="11"/>
                   switch (op) {
                         case 6:   if (!(value.toLowerCase().equals("true") || value.toLowerCase().equals("false"))) {
                                       errorValidation = errorValidation + " Invalid boolean value in condition.";
@@ -88,8 +80,7 @@ for (Map<String, String> condition : conditions) {
                                   break;
                         case 7:
                         case 8:
-
-
+                                  // TO DO VALIDATE DATE INPUT IN CONDITIONS
                                   break;
                         case 9:
                         case 10:

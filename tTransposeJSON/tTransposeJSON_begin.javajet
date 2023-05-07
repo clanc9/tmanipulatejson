@@ -65,7 +65,7 @@ for (Map<String, String> mapping : mappings) {
 }
 
 if (mappings != null && (mappings.size() == 0 || mappings.size() != validMappings)) {
-      errorValidation = errorValidation + " Pairs of target/source attributes are either missing or incomplete.";
+      errorValidation = errorValidation + " Pairs of target/source keys are either missing or incomplete.";
 }
 
 String outputJsonStr = ElementParameterParser.getValue(node, "__OUTPUT_JSON__");
@@ -82,7 +82,7 @@ com.fasterxml.jackson.databind.JsonNode outputJsonToValidate_<%=cid%> = null;
            <%
            for (String targetAttributeToValidate : targetAttributesToValidate) {  %>
                if (outputJsonToValidate_<%=cid%>.at("<%=targetAttributeToValidate%>").isMissingNode()) {
-                  throw new Exception("The target attribute <%=targetAttributeToValidate%> is not found in the target JSON.");
+                  throw new Exception("The target <%=targetAttributeToValidate%> is not found in the target JSON.");
                }
        <%  }  %>
        }

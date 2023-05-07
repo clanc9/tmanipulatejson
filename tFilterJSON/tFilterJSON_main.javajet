@@ -113,30 +113,25 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
               %>
                   value_<%=cid%> = inputJson_<%=cid%>.at("<%=path%>");
 
-                  System.out.println("---------------");
-                  System.out.println(inputJson_<%=cid%>.toString());
-                  System.out.println("<%=path%> = " + value_<%=cid%>.asText());
-
-
                   if (value_<%=cid%>.isMissingNode()) {
-                      throw new Exception("The attribute <%=path%> can not be found.");
+                      throw new Exception("<%=path%> cannot be found.");
                   }
                   else {
                   <%
                       Integer operation = Integer.valueOf(condition.get("OPERATION"));
                       if (operation == 2) {  %>
                           if (!(value_<%=cid%>.isNull())) {
-                              throw new Exception("The value of attribute <%=path%> is not null.");
+                              throw new Exception("The value for <%=path%> is not null.");
                           }
                 <%    }
                       else if (operation == 3) {  %>
                           if (value_<%=cid%>.isNull()) {
-                              throw new Exception("The value of attribute <%=path%> is null.");
+                              throw new Exception("The value for <%=path%> is null.");
                           }
               <%      }
                       else if (operation > 3) { %>
                           if (!value_<%=cid%>.isValueNode()) {
-                              throw new Exception("The value of attribute <%=path%> cannot be evaluated.");
+                              throw new Exception("The value for <%=path%> cannot be evaluated.");
                           }
                           else {
                       <%
@@ -149,23 +144,23 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
                                 <%    switch (operation) {
                                           case 9:  %>
                                                    if(numberValue_<%=cid%>.compareTo(new java.math.BigDecimal("<%=value%>")) != 0) {
-                                                      throw new Exception("The value of attribute <%=path%> is not equal to <%=value%>.");
+                                                      throw new Exception("The value for <%=path%> is not equal to <%=value%>.");
                                                    }
                                             <%     break;
                                           case 10: %>
                                                    if (numberValue_<%=cid%>.compareTo(new java.math.BigDecimal("<%=value%>")) != 1) {
-                                                      throw new Exception("The value of attribute <%=path%> is not superior to <%=value%>.");
+                                                      throw new Exception("The value for <%=path%> is not superior to <%=value%>.");
                                                    }
                                         <%         break;
                                          case 11:  %>
                                                    if (numberValue_<%=cid%>.compareTo(new java.math.BigDecimal("<%=value%>")) != -1) {
-                                                      throw new Exception("The value of attribute <%=path%> is not inferior to <%=value%>.");
+                                                      throw new Exception("The value for <%=path%> is not inferior to <%=value%>.");
                                                    }
                                         <%         break;
                                       } %>
                                   }
                                   catch (NumberFormatException e) {
-                                      throw new Exception("The value for attribute <%=path%> is not a number.");
+                                      throw new Exception("The value for <%=path%> is not a number.");
                                   }
                           <%  }
                               else if (operation >= 7) {
@@ -175,17 +170,16 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
                                   }
                                   %>
                                   dateDiff_<%=cid%> = TalendDate.compareDate(TalendDate.parseDate("<%=datePatternInJson%>", value_<%=cid%>.asText().trim(), true), TalendDate.parseDate("<%=datePatternInJson%>", "<%=value%>", true), "<%=datePatternInJson%>");
-                                  System.out.println("date diff =" + dateDiff_<%=cid%>.toString());
                                   <%
                                   switch (operation) {
                                         case 7: %>
-                                                if (dateDiff_<%=cid%> != 1) {
-                                                    throw new Exception("The value of attribute <%=path%> is not after <%=value%>");
+                                                if (dateDiff_<%=cid%> == -1) {
+                                                    throw new Exception("The value for <%=path%> is not after <%=value%>");
                                                 }
                                   <%            break;
                                         case 8:   %>
-                                                if (dateDiff_<%=cid%> != -1) {
-                                                    throw new Exception("The value of attribute <%=path%> is not before <%=value%>");
+                                                if (dateDiff_<%=cid%> == 1) {
+                                                    throw new Exception("The value for <%=path%> is not before <%=value%>");
                                                 }
                                   <%            break;
                                   }
@@ -194,25 +188,25 @@ if (incomingConnName != null && incomingConnName.length() > 0) {  %>
                                   // boolean equals to
                                   if (value.trim().toLowerCase().equals("true")) {  %>
                                         if (!(value_<%=cid%>.asText().trim().toLowerCase().equals("true") || value_<%=cid%>.asText().equals("1"))) {
-                                            throw new Exception("The value for attribute <%=path%> is not equal to true.");
+                                            throw new Exception("The value for <%=path%> is not equal to true.");
                                         }
                             <%    }
                                   else if (value.trim().toLowerCase().equals("false")) {  %>
                                         if (!(value_<%=cid%>.asText().trim().toLowerCase().equals("false") || value_<%=cid%>.asText().equals("0"))) {
-                                            throw new Exception("The value for attribute <%=path%> is not equal to false.");
+                                            throw new Exception("The value for <%=path%> is not equal to false.");
                                         }
                     <%            }
                               }
                               else if (operation == 5)  {
                                   // string equals  %>
                                   if (!(value_<%=cid%>.asText().equals("<%=value%>"))) {
-                                      throw new Exception("The value at attribute <%=path%> does not correspond to <%=value%>.");
+                                      throw new Exception("The value for <%=path%> does not correspond to <%=value%>.");
                                   }
                       <%      }
                               else if (operation == 4) {
                                   // empty string   %>
                                   if (value_<%=cid%>.asText().length() > 0) {
-                                      throw new Exception("The value at attribute <%=path%> is not an empty string.");
+                                      throw new Exception("The value for <%=path%> is not an empty string.");
                                   }
                       <%      } %>
                           }

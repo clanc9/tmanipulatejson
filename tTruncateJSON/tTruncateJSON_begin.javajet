@@ -60,7 +60,7 @@ if (attributes != null) {
 }
 
 if (attributes != null && (attributes.size() == 0 || attributes.size() != validAttributes)) {
-      errorValidation = errorValidation + " Attribute missing.";
+      errorValidation = errorValidation + " Key missing.";
 }
 %>
 

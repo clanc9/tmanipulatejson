@@ -59,7 +59,7 @@ imports="
     }
 
     if (attributes != null && (attributes.size() == 0 || attributes.size() != validAttributes)) {
-        errorValidation = errorValidation + " Attribute and/or new name is missing.";
+        errorValidation = errorValidation + " Key and/or new name is missing.";
     }
   %>
 
